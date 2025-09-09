@@ -1,191 +1,141 @@
 package main
 
 import (
-	"errors"
+	"bufio"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 )
 
 func main() {
-	fmt.Println("'ОБМЕННИК'")
 	for {
-		moneyInWallet, exchangeOperationType, targetCurrencyType, exchangeCurrencyType := whatDoUserWant()
-		result, err := getResult(moneyInWallet, exchangeOperationType)
-		if err != nil {
-			panic("Невалидные параметры для обмена.")
+		transactions := scanTransaction()
+		if len(transactions) == 0 {
+			fmt.Println("Ошибка: пустой массив. Заполните массив.")
+			continue
 		}
+		for {
 
-		printExchangeResult(moneyInWallet, result, exchangeCurrencyType, targetCurrencyType)
-
-		userChoice := doUserWantToRepeat()
-		if !userChoice {
-			fmt.Print("Программа завершена. Рад был помочь!")
+			result := getResult(transactions)
+			fmt.Print(result)
+			doUseraWantToRepeat := doUseraWantToRepeat()
+			if !doUseraWantToRepeat {
+				break
+			}
+		}
+		doUserWantToExit := doUserWantToExit()
+		if !doUserWantToExit {
+			fmt.Println("Программа завершена")
 			break
 		}
 	}
 }
 
-func getValidCurrencyInput(prompt string, validOptions ...int) int {
-	var input int
-	for {
-		fmt.Print(prompt)
-		_, err := fmt.Scan(&input)
-		if err != nil {
-			fmt.Println("Ошибка: введите целое число")
-			var discard string
-			fmt.Scanln(&discard)
-			continue
-		}
+func scanTransaction() []float64 {
+	reader := bufio.NewReader(os.Stdin)
 
-		valid := false
-		for _, option := range validOptions {
-			if input == option {
-				valid = true
-				break
+	fmt.Print("Введите транзакции черзе запятую: ")
+	input, _ := reader.ReadString('\n')
+
+	input = strings.TrimSpace(input)
+	transactionsStr := strings.Split(input, ",")
+
+	transactions := []float64{}
+
+	for _, numStr := range transactionsStr {
+		numStr = strings.TrimSpace(numStr)
+		if num, err := strconv.ParseFloat(numStr, 64); err == nil {
+			transactions = append(transactions, num)
+		}
+	}
+	return transactions
+}
+
+func chooseOperationType() string {
+	for {
+		var operation string
+		fmt.Print("Выберите тип операции:\n >>> SUM - посчитать сумму\n >>> AVG - посчитать среднее\n >>> MED - посчитать медиану\nВвод: ")
+		fmt.Scan(&operation)
+
+		operation = strings.ToUpper(operation)
+
+		if operation == "SUM" || operation == "AVG" || operation == "MED" {
+			return operation
+		} else {
+			fmt.Println("Ошибка. Введите SUM, AVG или MED")
+		}
+	}
+}
+
+func CalcuelateSum(transactions []float64) float64 {
+	var sum float64
+	for _, value := range transactions {
+		sum += value
+	}
+	return sum
+}
+
+func CalcuelateAvg(transactions []float64) float64 {
+	var sum float64
+	for _, value := range transactions {
+		sum += value
+	}
+	avg := sum / float64(len(transactions))
+	return avg
+}
+
+func CalcuelateMed(transactions []float64) float64 {
+	sorted := make([]float64, len(transactions))
+	copy(sorted, transactions)
+
+	n := len(sorted)
+	for i := 0; i < n-1; i++ {
+		for j := 0; j < n-i-1; j++ {
+			if sorted[j] > sorted[j+1] {
+				sorted[j], sorted[j+1] = sorted[j+1], sorted[j]
 			}
 		}
-
-		if !valid {
-			fmt.Printf("Ошибка: введите одно из следующих значений: %v\n", validOptions)
-			continue
-		}
-
-		return input
 	}
+
+	median := 0.0
+	if n%2 == 0 {
+		median = (sorted[n/2-1] + sorted[n/2]) / 2
+	} else {
+		median = sorted[n/2]
+	}
+	return median
 }
 
-func whatDoUserWant() (float64, float64, int, int) {
-	//рубли и доллары
-	usdToRub := 79.65
-	rubToUsd := 1 / 79.65
-	//рубли и евро
-	eurToRub := 92.74
-	rubToEur := 1 / 92.74
-	//доллары и евро
-	eurToUsd := 1.17
-	usdToEur := 1 / 1.17
-	var exchangeCurrencyType int
-	var targetCurrencyType int
-	var exchangeOperationType float64
-	var moneyInWallet float64
+func getResult(transactions []float64) string {
+	var result string
+	fmt.Printf("Массив транзакций: %.f\n", transactions)
+	operation := chooseOperationType()
 
-	//выбор исходной валюты с проверкой
-	exchangeCurrencyType = getValidCurrencyInput(
-		"Выберите валюту для обмена: 1 - Рубли, 2 - Доллары, 3 - Евро. Ввод: ",
-		1, 2, 3,
-	)
-
-	//ввод кол-во исходной валюты с проверкой
-	moneyInWallet = getValidMoneyInput()
-
-	//если пользователь выбрал исходной валютой рубли
-	if exchangeCurrencyType == 1 {
-		targetCurrencyType = getValidCurrencyInput(
-			"Выберите целевую валюту: 2 - Доллары, 3 - Евро. Ввод: ",
-			2, 3,
-		)
-		switch {
-		case targetCurrencyType == 2:
-			exchangeOperationType = rubToUsd
-		case targetCurrencyType == 3:
-			exchangeOperationType = rubToEur
-		}
-
-		//если пользователь выбрал исходной валютой доллары
-	} else if exchangeCurrencyType == 2 {
-		targetCurrencyType = getValidCurrencyInput(
-			"Выберите целевую валюту: 1 - рубли, 3 - Евро. Ввод: ",
-			1, 3,
-		)
-		switch {
-		case targetCurrencyType == 1:
-			exchangeOperationType = usdToRub
-		case targetCurrencyType == 3:
-			exchangeOperationType = usdToEur
-		}
-
-		//если пользователь выбрал исходной валютой евро
-	} else if exchangeCurrencyType == 3 {
-		targetCurrencyType = getValidCurrencyInput(
-			"Выберите целевую валюту: 1 - рубли, 2 - Доллары. Ввод: ",
-			1, 2,
-		)
-		switch {
-		case targetCurrencyType == 1:
-			exchangeOperationType = eurToRub
-		case targetCurrencyType == 2:
-			exchangeOperationType = eurToUsd
-		}
+	if operation == "SUM" {
+		sum := CalcuelateSum(transactions)
+		result = fmt.Sprintf("Сумма элементов массива: %.2f\n", sum)
+	} else if operation == "AVG" {
+		avg := CalcuelateAvg(transactions)
+		result = fmt.Sprintf("Ср. арифм. элементов массива: %.2f\n", avg)
+	} else if operation == "MED" {
+		med := CalcuelateMed(transactions)
+		result = fmt.Sprintf("Медиана массива: %.2f\n", med)
 	}
-	return moneyInWallet, exchangeOperationType, targetCurrencyType, exchangeCurrencyType
+
+	return result
 }
 
-func getValidMoneyInput() float64 {
-	var money float64
-	for {
-		fmt.Print("Введите кол-во валюты: ")
-		_, err := fmt.Scan(&money)
-		if err != nil || money <= 0 {
-			fmt.Println("Ошибка: введите положительное число")
-			// Очищаем буфер ввода перед повторной попыткой
-			var discard string
-			fmt.Scanln(&discard)
-			continue
-		}
-		return money
-	}
+func doUseraWantToRepeat() bool {
+	var doUseraWantToRepeat int
+	fmt.Print("Выбрать другую операцию? 1 - Да/люб. др. - НЕТ. Ввод: ")
+	fmt.Scan(&doUseraWantToRepeat)
+	return doUseraWantToRepeat == 1
 }
 
-func getResult(moneyInWallet float64, exchangeOperationType float64) (float64, error) {
-	if moneyInWallet <= 0 {
-		return 0, errors.New("error! No_valid_params_to_exchange")
-	}
-	result := moneyInWallet * exchangeOperationType
-	return result, nil
-}
-
-func doUserWantToRepeat() bool {
-	var repeatOrNot int
-	for {
-		fmt.Print("Повторить расчет? 1 - Да/2 - Нет. Ввод: ")
-		_, err := fmt.Scan(&repeatOrNot)
-		if err != nil || (repeatOrNot != 1 && repeatOrNot != 2) {
-			fmt.Println("Ошибка: введите 1 или 2")
-			var discard string
-			fmt.Scanln(&discard)
-			continue
-		}
-		break
-	}
-	return repeatOrNot == 1
-}
-func printExchangeResult(moneyInWallet, result float64, exchangeCurrencyType, targetCurrencyType int) {
-	//вывод для пользователя
-	if exchangeCurrencyType == 1 {
-		switch {
-		case targetCurrencyType == 2:
-			mainResult := fmt.Sprintf("%.2f Руб. = %.2f Долл. США", moneyInWallet, result)
-			fmt.Println(mainResult)
-		case targetCurrencyType == 3:
-			mainResult := fmt.Sprintf("%.2f Руб. = %.2f Евро", moneyInWallet, result)
-			fmt.Println(mainResult)
-		}
-	} else if exchangeCurrencyType == 2 {
-		switch {
-		case targetCurrencyType == 1:
-			mainResult := fmt.Sprintf("%.2f Долл. США = %.2f Руб.", moneyInWallet, result)
-			fmt.Println(mainResult)
-		case targetCurrencyType == 3:
-			mainResult := fmt.Sprintf("%.2f Долл. США = %.2f Евро.", moneyInWallet, result)
-			fmt.Println(mainResult)
-		}
-	} else if exchangeCurrencyType == 3 {
-		switch {
-		case targetCurrencyType == 1:
-			mainResult := fmt.Sprintf("%.2f Евро = %.2f Руб.", moneyInWallet, result)
-			fmt.Println(mainResult)
-		case targetCurrencyType == 2:
-			mainResult := fmt.Sprintf("%.2f Евро = %.2f Долл. США", moneyInWallet, result)
-			fmt.Println(mainResult)
-		}
-	}
+func doUserWantToExit() bool {
+	var doUserWantToExit int
+	fmt.Print(">>> Вы хотите выйти? <<<\n 1) 1 - Да\n 2) люб. др. - НЕТ. \nВвод: ")
+	fmt.Scan(&doUserWantToExit)
+	return doUserWantToExit != 1
 }
